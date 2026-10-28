@@ -8,6 +8,9 @@ const TARGET_HEIGHT := 1.7
 var display_name := "June"
 var brain: Node
 var _visual: Node3D
+var _skeleton: Skeleton3D
+var _arms := {}  # bone index -> rest rotation
+var _spine := -1
 var _t := 0.0
 
 
@@ -28,6 +31,16 @@ func _ready() -> void:
 	# The glb only ships a walk cycle, so make sure it is not playing and use a code idle.
 	for ap in model.find_children("*", "AnimationPlayer", true, false):
 		(ap as AnimationPlayer).stop()
+	# The rest pose is a T-pose; lower the upper arms so she stands naturally.
+	var skels := model.find_children("*", "Skeleton3D", true, false)
+	if skels.size() > 0:
+		_skeleton = skels[0]
+		for i in _skeleton.get_bone_count():
+			var bone := _skeleton.get_bone_name(i)
+			if bone.contains("LeftArm") or bone.contains("RightArm"):
+				_arms[i] = _skeleton.get_bone_rest(i).basis.get_rotation_quaternion()
+			elif bone.contains("Spine2"):
+				_spine = i
 
 	brain = BrainScript.new()
 	brain.npc_name = display_name
@@ -50,6 +63,13 @@ func _process(delta: float) -> void:
 	_visual.scale = Vector3.ONE * (1.0 + sin(_t * 1.6) * 0.006)
 	_visual.rotation.z = sin(_t * 0.7) * 0.012
 	_visual.rotation.y = sin(_t * 0.5) * 0.03
+	if _skeleton:
+		var arm_angle := deg_to_rad(66.0 + sin(_t * 1.6) * 1.5)
+		for i in _arms:
+			_skeleton.set_bone_pose_rotation(i, _arms[i] * Quaternion(Vector3.RIGHT, arm_angle))
+		if _spine >= 0:
+			var rest := _skeleton.get_bone_rest(_spine).basis.get_rotation_quaternion()
+			_skeleton.set_bone_pose_rotation(_spine, rest * Quaternion(Vector3.RIGHT, sin(_t * 1.6) * 0.015))
 
 
 ## Scale the imported model to a sensible height and stand it on the floor.
@@ -58,7 +78,9 @@ func _fit_model(model: Node3D) -> void:
 	var first := true
 	for mi in model.find_children("*", "MeshInstance3D", true, false):
 		var m := mi as MeshInstance3D
-		var b: AABB = m.global_transform * m.get_aabb()
+		# Skinned meshes are posed by the skeleton, so their node transform (often a
+		# 0.01 FBX scale) does not apply; their mesh-space bounds are the real size.
+		var b: AABB = m.get_aabb() if m.skin else m.global_transform * m.get_aabb()
 		box = b if first else box.merge(b)
 		first = false
 	if first or box.size.y < 0.001:

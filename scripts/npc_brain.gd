@@ -7,7 +7,9 @@ signal reply_progress(text: String)
 signal reply_finished(text: String)
 signal status(text: String)
 
-const MODEL := "hf://NobodyWho/Qwen_Qwen3-0.6B-GGUF/Qwen_Qwen3-0.6B-Q4_K_M.gguf"
+# Gemma 3 1B (~800 MB) was the smallest model that stayed in character and remembered
+# the player's name in testing. Qwen3 0.6B (~400 MB) is lighter but parrots the player.
+const MODEL := "hf://bartowski/google_gemma-3-1b-it-GGUF/google_gemma-3-1b-it-Q4_K_M.gguf"
 const SAVE_PATH := "user://june_memory.json"
 const MAX_FACTS := 8
 const RAPPORT_MIN := -6
@@ -17,6 +19,7 @@ var npc_name := "June"
 var rapport := 0
 var facts: Array[String] = []
 var player_name := ""
+var _last_delta := 0
 
 var _chat
 var _judge
@@ -70,48 +73,77 @@ func _start() -> void:
 	if _loading:
 		return
 	_loading = true
-	status.emit("Loading %s's brain (first run downloads ~400 MB)..." % npc_name)
-	var cfg := {
+	status.emit("Loading %s's brain (first run downloads ~800 MB, one time only)..." % npc_name)
+	# Moderate temperature plus a presence penalty so she doesn't loop the same line.
+	var sampler = NobodyWhoSamplerBuilder.new() \
+		.penalties(64, 1.1, 0.0, 1.0) \
+		.top_k(20) \
+		.top_p(0.8, 1) \
+		.temperature(0.7) \
+		.dist()
+	var chat = await NobodyWhoChat.create(MODEL, {
 		"system_prompt": _system_prompt(),
 		"n_ctx": 2048,
+		"sampler": sampler,
 		"template_variables": {"enable_thinking": false},
-	}
-	_chat = await NobodyWhoChat.create(MODEL, cfg)
-	_judge = await NobodyWhoChat.create(MODEL, {
+	})
+	var judge = await NobodyWhoChat.create(MODEL, {
 		"system_prompt": Persona.JUDGE_PROMPT,
 		"n_ctx": 512,
+		"sampler": NobodyWhoSamplerPresets.greedy(),
 		"template_variables": {"enable_thinking": false},
 	})
 	_loading = false
-	if _chat == null or _judge == null:
+	if chat == null or judge == null:
 		status.emit("Could not load the model. Check the Errors tab in the Godot editor.")
-		_chat = null
 		return
+	_judge = judge
+	_chat = chat
 	status.emit("")
 
 
 ## Scores the player's line and pulls out something worth remembering.
 func _judge_message(text: String) -> void:
-	await _judge.reset_chat(Persona.JUDGE_PROMPT, [])
-	var score_raw: String = await _judge.ask("Player message: " + text).completed()
+	var lower := text.to_lower()
 	var delta := 0
-	match score_raw.strip_edges().left(1):
-		"1": delta = 1
-		"2": delta = 2
-		"3": delta = -2
+	if _has_any(lower, Persona.RUDE_WORDS):
+		delta = -2
+	elif _has_any(lower, Persona.SWEET_WORDS):
+		delta = 1
+	else:
+		await _judge.reset_chat(Persona.JUDGE_PROMPT, [])
+		var score_raw: String = await _judge.ask("Player message: " + text).completed()
+		match _clean(score_raw).left(1):
+			"1": delta = 1
+			"2": delta = 2
+			"3": delta = -2
+	_last_delta = delta
 	rapport = clampi(rapport + delta, RAPPORT_MIN, RAPPORT_MAX)
+	_remember_facts(text)
 
-	await _judge.reset_chat(Persona.FACT_PROMPT, [])
-	var fact: String = (await _judge.ask("Player message: " + text).completed()).strip_edges()
-	fact = fact.trim_suffix(".")
-	if fact != "" and not fact.to_upper().begins_with("NONE") and fact.length() < 80:
+
+## Pattern-based memory: reliable where a tiny model would hallucinate facts.
+func _remember_facts(text: String) -> void:
+	# "my name is sam" works in any case; "I'm Sam" needs a capital so "i'm tired" is not a name.
+	var m := RegEx.create_from_string("(?i)\\b(?:my name is|my name's|call me|name's)\\s+([a-z]{2,15})\\b").search(text)
+	if m == null:
+		m = RegEx.create_from_string("\\b(?:[Ii]'m|[Ii] am)\\s+([A-Z][a-z]{1,15})\\b").search(text)
+	if m:
+		player_name = m.get_string(1).capitalize()
+	var fact_re := RegEx.create_from_string("(?i)\\b(i (?:really )?(?:like|love|hate|work as|work at|work in|live in|am from|have|collect|play|grew up in)\\s+[^.!?,]{2,40})")
+	for r in fact_re.search_all(text):
+		var fact := "They said: \"%s\"" % r.get_string(1).strip_edges()
 		if not facts.has(fact):
 			facts.append(fact)
 			if facts.size() > MAX_FACTS:
 				facts.pop_front()
-		var lower := fact.to_lower()
-		if lower.begins_with("name is "):
-			player_name = fact.substr(8).strip_edges().capitalize()
+
+
+func _has_any(text: String, words: Array) -> bool:
+	for w in words:
+		if text.contains(w):
+			return true
+	return false
 
 
 func _system_prompt() -> String:
@@ -120,14 +152,20 @@ func _system_prompt() -> String:
 	elif rapport <= 2: stage = 1
 	elif rapport <= 6: stage = 2
 	else: stage = 3
-	var p: String = Persona.BASE + "\nFEELINGS (right now)\n" + Persona.STAGES[stage] + "\n"
+	var p: String = Persona.BASE + "\n" + Persona.STAGES[stage] + "\n"
+	if player_name != "":
+		p = p.replace("a stranger", "someone named %s" % player_name)
+	if _last_delta < 0:
+		p += "Their last line was a cheesy or rude come-on. Call it out with dry sarcasm.\n"
+	elif _last_delta >= 2:
+		p += "Their last line was genuinely charming. Let it get to you a little.\n"
 	if facts.size() > 0 or player_name != "":
-		p += "\nTHINGS YOU REMEMBER ABOUT THE PLAYER\n"
+		p += "\nWhat you remember about them:\n"
 		if player_name != "":
-			p += "- Their name is %s.\n" % player_name
+			p += "- Their name is %s. If they ask, you know it.\n" % player_name
 		for f in facts:
 			p += "- %s\n" % f
-		p += "Bring these up naturally when it fits. Do not list them.\n"
+		p += "Mention these only when it fits naturally.\n"
 	return p
 
 
@@ -138,7 +176,13 @@ func _clean(t: String) -> String:
 		t = t.substr(end + 8)
 	elif t.begins_with("<think>"):
 		return ""
-	return t.strip_edges()
+	t = t.strip_edges()
+	# small models sometimes wrap the line in quotes or prefix the speaker name
+	t = t.trim_prefix("\u201c").trim_suffix("\u201d").trim_prefix("\"").trim_suffix("\"").strip_edges()
+	for prefix in [npc_name + ":", "June:"]:
+		if t.begins_with(prefix):
+			t = t.substr(prefix.length()).strip_edges()
+	return t
 
 
 func _load_memory() -> void:
