@@ -14,7 +14,7 @@ local LLM through [NobodyWho](https://github.com/nobodywho-ooo/nobodywho).
    player in testing; swap `MODEL` in `scripts/npc_brain.gd` if you want it anyway.
 
 Controls: WASD move, Shift run, mouse look, **E** start talking, hold **V** to speak (push to talk),
-**Enter** to type, **Esc** pause menu (switch push-to-talk / free talk / off).
+**Enter** to type, **Esc** pause menu (voice mode, microphone picker with level meter, free-talk sensitivity).
 Speech recognition is Whisper base via NobodyWho (about 150 MB, downloaded on first run, offline after).
 
 ## Files

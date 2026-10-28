@@ -10,7 +10,7 @@ const MOUSE_SENS := 0.0025
 const GRAVITY := 20.0
 const REACH := 4.0
 
-var locked := false  # freezes movement and look (e.g. while typing)
+var locked := false  # freezes walking (e.g. while typing in the chat box)
 
 var head: Node3D
 var camera: Camera3D
@@ -40,20 +40,46 @@ func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
-func _unhandled_input(event: InputEvent) -> void:
-	if locked:
+func _input(event: InputEvent) -> void:
+	# Mouse look lives in _input (not _unhandled_input) so no UI control can swallow it.
+	if get_tree().paused:
 		return
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		rotate_y(-event.relative.x * MOUSE_SENS)
-		head.rotation.x = clampf(head.rotation.x - event.relative.y * MOUSE_SENS, -1.4, 1.4)
-	elif event is InputEventKey and event.pressed and not event.echo:
-		if event.physical_keycode == KEY_E and _target:
-			interacted.emit(_target)
-	elif event is InputEventMouseButton and event.pressed and not get_tree().paused:
+		_look(event.relative * MOUSE_SENS)
+	elif event is InputEventMouseButton and event.pressed:
+		_capture_mouse()
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_E and _target:
+		interacted.emit(_target)
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_IN:
+		_capture_mouse()
+
+
+func _capture_mouse() -> void:
+	if not get_tree().paused and DisplayServer.window_is_focused():
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 
+func _look(delta: Vector2) -> void:
+	rotate_y(-delta.x)
+	head.rotation.x = clampf(head.rotation.x - delta.y, -1.4, 1.4)
+
+
 func _physics_process(delta: float) -> void:
+	# self-heal: if the mouse got released for any reason, grab it again
+	if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+		_capture_mouse()
+	# arrow keys also look around, in case the mouse misbehaves
+	var arrows := Vector2(
+		float(Input.is_physical_key_pressed(KEY_RIGHT)) - float(Input.is_physical_key_pressed(KEY_LEFT)),
+		float(Input.is_physical_key_pressed(KEY_DOWN)) - float(Input.is_physical_key_pressed(KEY_UP)))
+	if arrows != Vector2.ZERO and not get_tree().paused:
+		_look(arrows * 2.0 * delta)
 	var dir := Vector2.ZERO
 	if not locked:
 		if Input.is_physical_key_pressed(KEY_W): dir.y -= 1

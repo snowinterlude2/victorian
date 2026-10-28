@@ -42,6 +42,7 @@ func _ready() -> void:
 	add_child(voice)
 
 	pause = PauseScript.new()
+	pause.voice = voice
 	add_child(pause)
 	voice.mode = pause.mode
 
@@ -61,6 +62,12 @@ func _ready() -> void:
 	pause.mode_changed.connect(func(m): voice.mode = m; _refresh_hud())
 
 
+func _process(_delta: float) -> void:
+	# safety net: if the typing box lost focus for any reason, give the controls back
+	if _input.visible and not _input.has_focus():
+		_close_input()
+
+
 func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey and event.pressed and not event.echo):
 		return
@@ -70,7 +77,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		else:
 			pause.open()
 		get_viewport().set_input_as_handled()
-	elif talking and event.physical_keycode in [KEY_ENTER, KEY_KP_ENTER, KEY_T] and not _input.visible:
+	elif talking and event.physical_keycode in [KEY_ENTER, KEY_KP_ENTER] and not _input.visible:
 		_input.visible = true
 		_input.clear()
 		_input.grab_focus()

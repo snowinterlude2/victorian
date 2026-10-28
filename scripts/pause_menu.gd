@@ -12,7 +12,9 @@ const MODES := [
 ]
 
 var mode := "push"
+var voice: Node  # set by main.gd
 var _buttons := {}
+var _meter: ProgressBar
 
 
 func _ready() -> void:
@@ -73,6 +75,46 @@ func _ready() -> void:
 		inner.add_child(cb)
 		_buttons[m[0]] = cb
 
+	var mic_head := Label.new()
+	mic_head.text = "Microphone"
+	mic_head.add_theme_color_override("font_color", Color("0A246A"))
+	inner.add_child(mic_head)
+	var picker := OptionButton.new()
+	var devs: PackedStringArray = voice.devices() if voice else PackedStringArray(["Default"])
+	for i in devs.size():
+		picker.add_item(devs[i])
+		if voice and devs[i] == voice.device:
+			picker.select(i)
+	picker.item_selected.connect(func(i): voice.set_device(devs[i]))
+	inner.add_child(picker)
+	_meter = ProgressBar.new()
+	_meter.max_value = 1.0
+	_meter.show_percentage = false
+	_meter.custom_minimum_size = Vector2(0, 14)
+	_meter.add_theme_stylebox_override("background", _box(Color.WHITE, 1, Color("7F9DB9"), 0))
+	_meter.add_theme_stylebox_override("fill", _box(Color("2FB347"), 0, Color("2FB347"), 0))
+	inner.add_child(_meter)
+	var hint := Label.new()
+	hint.text = "Talk now: the bar should jump when you speak."
+	hint.add_theme_color_override("font_color", Color("6B6B6B"))
+	hint.add_theme_font_size_override("font_size", 12)
+	inner.add_child(hint)
+	var sens_row := HBoxContainer.new()
+	inner.add_child(sens_row)
+	var sens_label := Label.new()
+	sens_label.text = "Free-talk sensitivity"
+	sens_label.add_theme_color_override("font_color", Color.BLACK)
+	sens_row.add_child(sens_label)
+	var sens := HSlider.new()
+	sens.min_value = 0.3
+	sens.max_value = 4.0
+	sens.step = 0.1
+	sens.value = voice.sensitivity if voice else 1.0
+	sens.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sens.custom_minimum_size = Vector2(120, 0)
+	sens.value_changed.connect(func(v): voice.set_sensitivity(v))
+	sens_row.add_child(sens)
+
 	var sep := HSeparator.new()
 	inner.add_child(sep)
 	var row := HBoxContainer.new()
@@ -88,6 +130,11 @@ func _ready() -> void:
 	quit.custom_minimum_size = Vector2(80, 0)
 	quit.pressed.connect(func(): get_tree().quit())
 	row.add_child(quit)
+
+
+func _process(_delta: float) -> void:
+	if visible and _meter and voice:
+		_meter.value = voice.level
 
 
 func _unhandled_key_input(event: InputEvent) -> void:
