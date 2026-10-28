@@ -13,6 +13,7 @@ local LLM through [NobodyWho](https://github.com/nobodywho-ooo/nobodywho).
    from Hugging Face; after that it works offline. Qwen3 0.6B is lighter but just parroted the
    player in testing; swap `MODEL` in `scripts/npc_brain.gd` if you want it anyway.
 
+Press **F3** in game for a debug overlay (mouse/keyboard state). If the mouse won't look around, hold right mouse and drag.
 Controls: WASD move, Shift run, mouse look, **E** start talking, hold **V** to speak (push to talk),
 **Enter** to type, **Esc** pause menu (voice mode, microphone picker with level meter, free-talk sensitivity).
 Speech recognition is Whisper base via NobodyWho (about 150 MB, downloaded on first run, offline after).
@@ -21,6 +22,7 @@ Speech recognition is Whisper base via NobodyWho (about 150 MB, downloaded on fi
 - `scripts/persona.gd` - June's personality, flirt rules, and mood stages. Edit here.
 - `scripts/npc_brain.gd` - LLM chat, rapport score (keywords + a judge prompt), and remembered name/facts (saved to `user://june_memory.json`).
 - `scripts/voice_input.gd` - mic capture, push-to-talk / free-talk detection, Whisper transcription.
+- `scripts/npc_voice.gd` - June's spoken voice (Kokoro text-to-speech via NobodyWho, ~330 MB first run). Change `VOICE` to try another.
 - `scripts/talk_bubble.gd` - speech balloon above her head.
 - `scripts/pause_menu.gd` - Esc menu with the voice mode toggle (saved to `user://settings.cfg`).
 - `assets/character/npc.glb` - character model. It only has a walk cycle, so the idle (arms lowered from the T-pose, breathing, sway) is done in code.

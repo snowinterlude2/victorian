@@ -13,6 +13,7 @@ const MODES := [
 
 var mode := "push"
 var voice: Node  # set by main.gd
+var npc_voice: Node  # set by main.gd
 var _buttons := {}
 var _meter: ProgressBar
 
@@ -114,6 +115,15 @@ func _ready() -> void:
 	sens.custom_minimum_size = Vector2(120, 0)
 	sens.value_changed.connect(func(v): voice.set_sensitivity(v))
 	sens_row.add_child(sens)
+
+	var speak := CheckBox.new()
+	speak.text = "June talks out loud"
+	speak.button_pressed = npc_voice.enabled if npc_voice else true
+	speak.add_theme_color_override("font_color", Color.BLACK)
+	speak.add_theme_color_override("font_pressed_color", Color.BLACK)
+	speak.add_theme_color_override("font_hover_color", Color("0A246A"))
+	speak.toggled.connect(func(on): npc_voice.set_enabled(on))
+	inner.add_child(speak)
 
 	var sep := HSeparator.new()
 	inner.add_child(sep)

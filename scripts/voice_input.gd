@@ -21,6 +21,7 @@ const JUNK := ["", "you", "thank you.", "thanks for watching!", "[blank_audio]",
 
 var mode := "push"
 var sensitivity := 1.0
+var suppressed := false  # true while June is speaking, so she does not hear herself
 var level := 0.0  # smoothed mic loudness 0..1 (for the meter)
 var device := "Default"
 var active := false:  # true while a conversation is going
@@ -115,7 +116,7 @@ func _process(delta: float) -> void:
 	var rms := sqrt(energy / max(1, buf.size()))
 	level = lerpf(level, clampf(rms * 8.0, 0.0, 1.0), 0.4)
 
-	if not active or mode == "off" or _busy or _stt == null or get_tree().paused:
+	if not active or mode == "off" or _busy or _stt == null or suppressed or get_tree().paused:
 		return
 	var chunk_time := buf.size() / _rate
 

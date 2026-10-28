@@ -3,6 +3,7 @@ extends StaticBody3D
 
 const BrainScript := preload("res://scripts/npc_brain.gd")
 const BubbleScript := preload("res://scripts/talk_bubble.gd")
+const VoiceScript := preload("res://scripts/npc_voice.gd")
 const MODEL_PATH := "res://assets/character/npc.glb"
 const TARGET_HEIGHT := 1.7
 const TALK_RADIUS := 4.0
@@ -13,6 +14,7 @@ signal player_left_zone
 var display_name := "June"
 var brain: Node
 var bubble: Node3D
+var voice: Node3D
 var _visual: Node3D
 var _skeleton: Skeleton3D
 var _arms := {}  # bone index -> rest rotation
@@ -62,6 +64,9 @@ func _ready() -> void:
 	bubble = BubbleScript.new()
 	bubble.position = Vector3(0, TARGET_HEIGHT + 0.25, 0)
 	add_child(bubble)
+
+	voice = VoiceScript.new()
+	add_child(voice)
 
 	brain = BrainScript.new()
 	brain.npc_name = display_name

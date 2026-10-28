@@ -16,6 +16,8 @@ var head: Node3D
 var camera: Camera3D
 var ray: RayCast3D
 var _target: Object = null
+var motion_events := 0
+var last_motion := Vector2.ZERO
 
 
 func _ready() -> void:
@@ -44,8 +46,12 @@ func _input(event: InputEvent) -> void:
 	# Mouse look lives in _input (not _unhandled_input) so no UI control can swallow it.
 	if get_tree().paused:
 		return
-	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		_look(event.relative * MOUSE_SENS)
+	if event is InputEventMouseMotion:
+		motion_events += 1
+		last_motion = event.relative
+		# captured mouse always looks; otherwise hold right mouse and drag (fallback)
+		if Input.mouse_mode == Input.MOUSE_MODE_CAPTURED or Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+			_look(event.relative * MOUSE_SENS)
 	elif event is InputEventMouseButton and event.pressed:
 		_capture_mouse()
 

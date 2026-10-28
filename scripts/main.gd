@@ -24,6 +24,7 @@ var _hint_label: Label
 var _mic_label: Label
 var _subtitle: Label
 var _input: LineEdit
+var _debug: Label
 var _subtitle_timer: SceneTreeTimer
 
 
@@ -43,10 +44,13 @@ func _ready() -> void:
 
 	pause = PauseScript.new()
 	pause.voice = voice
+	pause.npc_voice = npc.voice
 	add_child(pause)
 	voice.mode = pause.mode
 
 	_build_hud()
+	if Engine.is_embedded_in_editor():
+		_show_subtitle("Game is embedded in the editor: click the game once, hold RIGHT mouse to look. Press F3 for debug.")
 
 	player.target_changed.connect(func(t): looking_at_npc = t == npc; _refresh_hud())
 	player.interacted.connect(_on_interacted)
@@ -54,7 +58,9 @@ func _ready() -> void:
 	npc.player_left_zone.connect(_on_left_zone)
 	npc.brain.reply_started.connect(func(): npc.bubble.say("...", true))
 	npc.brain.reply_progress.connect(func(t): npc.bubble.say(t, true))
-	npc.brain.reply_finished.connect(func(t): npc.bubble.say(t))
+	npc.brain.reply_finished.connect(func(t): npc.bubble.say(t); npc.voice.say(t))
+	npc.brain.reply_started.connect(npc.voice.stop)
+	npc.voice.speaking_changed.connect(func(on): voice.suppressed = on)
 	npc.brain.status.connect(_show_status)
 	voice.heard.connect(_send)
 	voice.listening_changed.connect(func(on): _mic_label.text = "● Listening" if on else ""; _refresh_hud())
@@ -63,6 +69,11 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
+	if _debug.visible:
+		_debug.text = "F3 debug\nembedded in editor: %s\nwindow focused: %s\nmouse mode: %s (2 = captured)\nmouse motion events: %d  last: %s\nW held: %s  locked: %s  paused: %s\nmic level: %.2f  mode: %s  in zone: %s" % [
+			Engine.is_embedded_in_editor(), DisplayServer.window_is_focused(), Input.mouse_mode,
+			player.motion_events, player.last_motion, Input.is_physical_key_pressed(KEY_W),
+			player.locked, get_tree().paused, voice.level, voice.mode, in_zone]
 	# safety net: if the typing box lost focus for any reason, give the controls back
 	if _input.visible and not _input.has_focus():
 		_close_input()
@@ -77,6 +88,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		else:
 			pause.open()
 		get_viewport().set_input_as_handled()
+	elif event.physical_keycode == KEY_F3:
+		_debug.visible = not _debug.visible
 	elif talking and event.physical_keycode in [KEY_ENTER, KEY_KP_ENTER] and not _input.visible:
 		_input.visible = true
 		_input.clear()
@@ -173,6 +186,15 @@ func _build_hud() -> void:
 	_subtitle.offset_top = -110
 	_subtitle.offset_bottom = -80
 	_subtitle.grow_horizontal = Control.GROW_DIRECTION_BOTH
+
+	_debug = Label.new()
+	_debug.visible = false
+	_debug.position = Vector2(12, 12)
+	_debug.add_theme_font_size_override("font_size", 14)
+	_debug.add_theme_color_override("font_color", Color("9CFF9C"))
+	_debug.add_theme_color_override("font_outline_color", Color.BLACK)
+	_debug.add_theme_constant_override("outline_size", 5)
+	root.add_child(_debug)
 
 	_input = LineEdit.new()
 	_input.visible = false
