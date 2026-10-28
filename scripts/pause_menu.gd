@@ -123,7 +123,17 @@ func _ready() -> void:
 	speak.add_theme_color_override("font_pressed_color", Color.BLACK)
 	speak.add_theme_color_override("font_hover_color", Color("0A246A"))
 	speak.toggled.connect(func(on): npc_voice.set_enabled(on))
-	inner.add_child(speak)
+	var speak_row := HBoxContainer.new()
+	speak_row.add_child(speak)
+	var test := Button.new()
+	test.text = "Test"
+	test.pressed.connect(func():
+		if npc_voice.is_ready():
+			npc_voice.say("Can you hear me now?")
+		else:
+			test.text = "Not loaded yet...")
+	speak_row.add_child(test)
+	inner.add_child(speak_row)
 
 	var sep := HSeparator.new()
 	inner.add_child(sep)

@@ -57,9 +57,11 @@ func _ready() -> void:
 	npc.player_entered_zone.connect(func(): in_zone = true; _refresh_hud())
 	npc.player_left_zone.connect(_on_left_zone)
 	npc.brain.reply_started.connect(func(): npc.bubble.say("...", true))
-	npc.brain.reply_progress.connect(func(t): npc.bubble.say(t, true))
-	npc.brain.reply_finished.connect(func(t): npc.bubble.say(t); npc.voice.say(t))
+	# with her voice on, the balloon waits for the audio and reveals words as she says them
+	npc.brain.reply_progress.connect(func(t): if not _will_speak(): npc.bubble.say(t, true))
+	npc.brain.reply_finished.connect(_on_reply_finished)
 	npc.brain.reply_started.connect(npc.voice.stop)
+	npc.voice.status.connect(_show_status)
 	npc.voice.speaking_changed.connect(func(on): voice.suppressed = on)
 	npc.brain.status.connect(_show_status)
 	voice.heard.connect(_send)
@@ -98,13 +100,28 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
+func _will_speak() -> bool:
+	return npc.voice.enabled and npc.voice.is_ready()
+
+
+func _on_reply_finished(text: String) -> void:
+	if not _will_speak():
+		npc.bubble.say(text)
+		return
+	var seconds: float = await npc.voice.say(text)
+	if seconds > 0.0:
+		npc.bubble.say_timed(text, seconds)
+	else:
+		npc.bubble.say(text)
+
+
 func _on_interacted(target: Object) -> void:
 	if target != npc or not in_zone or talking:
 		return
 	talking = true
 	voice.active = true
 	npc.face(player.global_position)
-	npc.bubble.say(npc.brain.greeting())
+	_on_reply_finished(npc.brain.greeting())
 	_refresh_hud()
 
 

@@ -10,6 +10,7 @@ var _panel: PanelContainer
 var _label: Label
 var _sprite: Sprite3D
 var _tween: Tween
+var _reveal: Tween
 var _hide_timer: SceneTreeTimer
 
 
@@ -53,6 +54,15 @@ func _ready() -> void:
 
 ## Shows or updates the balloon. hold=true keeps it up (while she is still "typing").
 func say(text: String, hold := false) -> void:
+	_show(text, hold, 0.0)
+
+
+## Shows the whole balloon at once but reveals the words over `seconds`, in sync with her voice.
+func say_timed(text: String, seconds: float) -> void:
+	_show(text, true, seconds)
+
+
+func _show(text: String, hold: bool, reveal_seconds: float) -> void:
 	if text == "":
 		text = "..."
 	_label.text = text
@@ -74,6 +84,17 @@ func say(text: String, hold := false) -> void:
 	_sprite.offset = Vector2(0, size.y * 0.5)
 	_fade_to(1.0, 0.15)
 	_hide_timer = null
+	if _reveal:
+		_reveal.kill()
+	if reveal_seconds > 0.0:
+		_label.visible_ratio = 0.0
+		_reveal = create_tween()
+		_reveal.tween_property(_label, "visible_ratio", 1.0, reveal_seconds * 0.9)
+		var t2 := get_tree().create_timer(reveal_seconds + 2.5)
+		_hide_timer = t2
+		t2.timeout.connect(func(): if _hide_timer == t2: _fade_to(0.0, 0.6))
+	else:
+		_label.visible_ratio = 1.0
 	if not hold:
 		var t := get_tree().create_timer(3.0 + text.length() * 0.06)
 		_hide_timer = t

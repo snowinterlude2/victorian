@@ -19,7 +19,7 @@ Controls: WASD move, Shift run, mouse look, **E** start talking, hold **V** to s
 Speech recognition is Whisper base via NobodyWho (about 150 MB, downloaded on first run, offline after).
 
 ## Files
-- `scripts/persona.gd` - June's personality, flirt rules, and mood stages. Edit here.
+- `scripts/persona.gd` - June's personality, **LORE** (put your game's world here), flirt rules, mood stages, and the in-character brush-offs for assistant-style questions. Edit here.
 - `scripts/npc_brain.gd` - LLM chat, rapport score (keywords + a judge prompt), and remembered name/facts (saved to `user://june_memory.json`).
 - `scripts/voice_input.gd` - mic capture, push-to-talk / free-talk detection, Whisper transcription.
 - `scripts/npc_voice.gd` - June's spoken voice (Kokoro text-to-speech via NobodyWho, ~330 MB first run). Change `VOICE` to try another.

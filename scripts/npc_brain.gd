@@ -20,6 +20,9 @@ var rapport := 0
 var facts: Array[String] = []
 var player_name := ""
 var _last_delta := 0
+var _offtopic := false
+var _offtopic_kind := ""
+var _offtopic_res: Array[RegEx] = []
 
 var _chat
 var _judge
@@ -28,6 +31,8 @@ var _busy := false
 
 
 func _ready() -> void:
+	for pat in Persona.OFFTOPIC_PATTERNS:
+		_offtopic_res.append(RegEx.create_from_string("(?i)" + pat))
 	_load_memory()
 	_start()
 
@@ -49,6 +54,15 @@ func player_said(text: String) -> void:
 		return
 	_busy = true
 	reply_started.emit()
+	_offtopic = _is_offtopic(text)
+	if _offtopic:
+		# never ask the model: brush it off in character
+		await get_tree().create_timer(0.4).timeout
+		var line := _deflect(_offtopic_kind)
+		reply_progress.emit(line)
+		reply_finished.emit(line)
+		_busy = false
+		return
 	await _judge_message(text)
 	await _chat.set_system_prompt(_system_prompt())
 	var stream = _chat.ask(text)
@@ -59,7 +73,10 @@ func player_said(text: String) -> void:
 			break
 		full += token
 		reply_progress.emit(_clean(full))
-	reply_finished.emit(_clean(full))
+	var final := _clean(full)
+	if _sounds_like_assistant(final):
+		final = _deflect("trivia")
+	reply_finished.emit(final)
 	_busy = false
 
 
@@ -137,6 +154,34 @@ func _remember_facts(text: String) -> void:
 			facts.append(fact)
 			if facts.size() > MAX_FACTS:
 				facts.pop_front()
+
+
+func _is_offtopic(text: String) -> bool:
+	for i in _offtopic_res.size():
+		if _offtopic_res[i].search(text) != null:
+			_offtopic_kind = Persona.OFFTOPIC_KINDS[i]
+			return true
+	return false
+
+
+func _deflect(kind: String) -> String:
+	var pool: Array = Persona.DEFLECTIONS_TRIVIA
+	match kind:
+		"math": pool = Persona.DEFLECTIONS_MATH
+		"code": pool = Persona.DEFLECTIONS_CODE
+		"jailbreak": pool = Persona.DEFLECTIONS_JAILBREAK
+	return pool[randi() % pool.size()]
+
+
+## True when a model reply sounds like an assistant instead of June.
+func _sounds_like_assistant(reply: String) -> bool:
+	var low := reply.to_lower()
+	if reply.length() > 260 or low.contains("*") or reply.count("\n") > 3:
+		return true
+	for tell in Persona.ASSISTANT_TELLS:
+		if low.contains(tell):
+			return true
+	return false
 
 
 func _has_any(text: String, words: Array) -> bool:
