@@ -8,12 +8,9 @@ const WALK_SPEED := 3.5
 const RUN_SPEED := 6.0
 const MOUSE_SENS := 0.0025
 const GRAVITY := 20.0
-const REACH := 3.0
+const REACH := 4.0
 
-var locked := false:
-	set(v):
-		locked = v
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if v else Input.MOUSE_MODE_CAPTURED
+var locked := false  # freezes movement and look (e.g. while typing)
 
 var head: Node3D
 var camera: Camera3D
@@ -52,9 +49,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventKey and event.pressed and not event.echo:
 		if event.physical_keycode == KEY_E and _target:
 			interacted.emit(_target)
-		elif event.physical_keycode == KEY_ESCAPE:
-			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	elif event is InputEventMouseButton and event.pressed:
+	elif event is InputEventMouseButton and event.pressed and not get_tree().paused:
 		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
 

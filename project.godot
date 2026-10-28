@@ -16,3 +16,7 @@ window/stretch/mode="canvas_items"
 [rendering]
 
 renderer/rendering_method="forward_plus"
+
+[audio]
+
+driver/enable_input=true

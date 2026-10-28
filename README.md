@@ -1,7 +1,8 @@
 # Victorian - talking NPC in Godot
 
-A small 3D room with first-person controls, an NPC (June) who idles, and a Windows XP
-style chat window. Press **E** while looking at her to talk. Her replies come from a
+A small 3D room with first-person controls and an NPC (June) you can talk to by voice or text.
+Walk into her zone, look at her (her name shows under the crosshair) and press **E**. Her replies
+float above her head in an XP-style balloon. Her replies come from a
 local LLM through [NobodyWho](https://github.com/nobodywho-ooo/nobodywho).
 
 ## Run it
@@ -12,10 +13,14 @@ local LLM through [NobodyWho](https://github.com/nobodywho-ooo/nobodywho).
    from Hugging Face; after that it works offline. Qwen3 0.6B is lighter but just parroted the
    player in testing; swap `MODEL` in `scripts/npc_brain.gd` if you want it anyway.
 
-Controls: WASD move, Shift run, mouse look, **E** talk, **Esc** closes the chat (or frees the mouse).
+Controls: WASD move, Shift run, mouse look, **E** start talking, hold **V** to speak (push to talk),
+**Enter** to type, **Esc** pause menu (switch push-to-talk / free talk / off).
+Speech recognition is Whisper base via NobodyWho (about 150 MB, downloaded on first run, offline after).
 
 ## Files
 - `scripts/persona.gd` - June's personality, flirt rules, and mood stages. Edit here.
 - `scripts/npc_brain.gd` - LLM chat, rapport score (keywords + a judge prompt), and remembered name/facts (saved to `user://june_memory.json`).
-- `scripts/chat_window.gd` - WinXP window UI.
+- `scripts/voice_input.gd` - mic capture, push-to-talk / free-talk detection, Whisper transcription.
+- `scripts/talk_bubble.gd` - speech balloon above her head.
+- `scripts/pause_menu.gd` - Esc menu with the voice mode toggle (saved to `user://settings.cfg`).
 - `assets/character/npc.glb` - character model. It only has a walk cycle, so the idle (arms lowered from the T-pose, breathing, sway) is done in code.

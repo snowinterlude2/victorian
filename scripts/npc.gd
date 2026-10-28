@@ -2,11 +2,17 @@ extends StaticBody3D
 ## The talking NPC: the Mita model with a procedural idle, plus its brain.
 
 const BrainScript := preload("res://scripts/npc_brain.gd")
+const BubbleScript := preload("res://scripts/talk_bubble.gd")
 const MODEL_PATH := "res://assets/character/npc.glb"
 const TARGET_HEIGHT := 1.7
+const TALK_RADIUS := 4.0
+
+signal player_entered_zone
+signal player_left_zone
 
 var display_name := "June"
 var brain: Node
+var bubble: Node3D
 var _visual: Node3D
 var _skeleton: Skeleton3D
 var _arms := {}  # bone index -> rest rotation
@@ -41,6 +47,21 @@ func _ready() -> void:
 				_arms[i] = _skeleton.get_bone_rest(i).basis.get_rotation_quaternion()
 			elif bone.contains("Spine2"):
 				_spine = i
+
+	# talk zone: you can only chat with her while inside it
+	var zone := Area3D.new()
+	var zone_shape := CollisionShape3D.new()
+	var sphere := SphereShape3D.new()
+	sphere.radius = TALK_RADIUS
+	zone_shape.shape = sphere
+	zone.add_child(zone_shape)
+	add_child(zone)
+	zone.body_entered.connect(func(b): if b is CharacterBody3D: player_entered_zone.emit())
+	zone.body_exited.connect(func(b): if b is CharacterBody3D: player_left_zone.emit())
+
+	bubble = BubbleScript.new()
+	bubble.position = Vector3(0, TARGET_HEIGHT + 0.25, 0)
+	add_child(bubble)
 
 	brain = BrainScript.new()
 	brain.npc_name = display_name
